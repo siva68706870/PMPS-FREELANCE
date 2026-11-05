@@ -503,7 +503,7 @@ function PMPSFreelance() {
         </div>
         <div className="flex items-center gap-2 md:hidden">
           {userId ? <Button variant="ghost" size="sm" onClick={() => void signOut()}>Sign out</Button> : <Button variant="outline" size="sm" onClick={openSignIn}>Sign in</Button>}
-          <Button size="sm" onClick={() => userId ? setShowPostJob(true) : (setAuthMode("signup"), setShowAuth(true))}>Post a job</Button>
+          {role === "client" || owner ? <Button size="sm" onClick={() => userId ? setShowPostJob(true) : (setAuthMode("signup"), setShowAuth(true))}>Post a job</Button> : <Button size="sm" onClick={() => userId ? document.getElementById("marketplace")?.scrollIntoView({ behavior: "smooth" }) : (setAuthMode("signup"), setShowAuth(true))}>{userId ? "Find work" : "Join PMPS"}</Button>}
         </div>
       </header>
 
@@ -535,7 +535,7 @@ function PMPSFreelance() {
             {nav.map(({ id, label, icon: Icon }) => <Button key={id} variant="ghost" onClick={() => setView(id)} className={`pmps-nav-item ${view === id ? "is-active" : ""}`}><Icon aria-hidden="true" /><span>{label}</span>{id === "messages" && conversations.length > 0 ? <Badge variant="secondary">{conversations.length}</Badge> : null}</Button>)}
             <Button variant="ghost" onClick={() => { setView("profile"); setEditingProfile(true); }} className={`pmps-nav-item ${view === "profile" ? "is-active" : ""}`}><span className="pmps-avatar pmps-avatar-small">{initials(displayName(profile))}</span><span>My profile</span></Button>
           </nav>
-          {userId ? <div className="pmps-sidebar-user"><div className="pmps-sidebar-avatar pmps-avatar">{initials(displayName(profile))}</div><div className="min-w-0"><strong>{displayName(profile)}</strong><span>{role ? roleLabel[role] : "Pick an account type"}</span></div><button className="pmps-icon-button" aria-label="Report a user" title="Report a user" onClick={() => { setReportTarget(""); setShowReport(true); }}>⋯</button></div> : <div className="pmps-sidebar-signin"><p>Join the work community.</p><Button size="sm" onClick={() => { setAuthMode("signup"); setShowAuth(true); }}>Create account</Button></div>}
+          {userId ? <div className="pmps-sidebar-user"><div className="pmps-sidebar-avatar pmps-avatar">{initials(displayName(profile))}</div><div className="min-w-0"><strong>{displayName(profile)}</strong><span>{role ? roleLabel[role] : "Pick an account type"}</span></div><Button variant="ghost" size="icon" className="pmps-icon-button" aria-label="Report a user" title="Report a user" onClick={() => { setReportTarget(""); setShowReport(true); }}>⋯</Button></div> : <div className="pmps-sidebar-signin"><p>Join the work community.</p><Button size="sm" onClick={() => { setAuthMode("signup"); setShowAuth(true); }}>Create account</Button></div>}
           <div className="pmps-sidebar-foot"><span className="pmps-live-dot" />A marketplace for real work</div>
         </aside>
 
