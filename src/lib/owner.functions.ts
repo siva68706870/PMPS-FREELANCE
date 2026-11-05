@@ -24,14 +24,14 @@ export const getOwnerDirectory = createServerFn({ method: "GET" })
       .select("user_id, role");
     if (rolesError) throw new Error("Could not load member account types.");
 
-    const usersById = new Map<string, { email?: string }>();
+    const usersById = new Map<string, { email: string }>();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: userPage, error: userError } = await supabaseAdmin.auth.admin.listUsers({
       page: 1,
       perPage: 1000,
     });
     if (userError) throw new Error("Could not load member email addresses.");
-    for (const user of userPage.users) usersById.set(user.id, { email: user.email });
+    for (const user of userPage.users) usersById.set(user.id, { email: user.email ?? "" });
 
     return (profiles ?? []).map((profile) => ({
       ...profile,

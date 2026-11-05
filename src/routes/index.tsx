@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BriefcaseBusiness, ChartNoAxesCombined, MessageCircleMore, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import marketplaceCover from "@/assets/pmps-freelance-cover.jpg";
 import type { Tables, TablesInsert, Enums } from "@/integrations/supabase/types";
 import { getOwnerDirectory, removeMarketplaceAccount } from "@/lib/owner.functions";
 
@@ -38,7 +39,18 @@ type Application = Tables<"applications">;
 type Message = Tables<"messages">;
 type Report = Tables<"reports">;
 type AppView = "jobs" | "applications" | "messages" | "profile" | "admin";
-type Conversation = { peer: Profile; jobId: string | null; jobTitle: string; latest: Message };
+type OwnerMember = {
+  id: string;
+  display_name: string;
+  email: string;
+  role: Role;
+  avatar_url: string | null;
+  headline: string | null;
+  location: string | null;
+  skills: string[];
+  account_state: string;
+  created_at: string;
+};
 
 const roleLabel: Record<Role, string> = { client: "Client", freelancer: "Freelancer", owner: "Owner" };
 const currency = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
@@ -60,7 +72,6 @@ function profileCompletion(profile: Profile | null) {
 
 function PMPSFreelance() {
   const [userId, setUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -68,7 +79,7 @@ function PMPSFreelance() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
-  const [ownerDirectory, setOwnerDirectory] = useState<Array<Record<string, unknown>>>([]);
+  const [ownerDirectory, setOwnerDirectory] = useState<OwnerMember[]>([]);
   const [view, setView] = useState<AppView>("jobs");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
@@ -90,7 +101,6 @@ function PMPSFreelance() {
   const [reportTarget, setReportTarget] = useState("");
   const [reportCategory, setReportCategory] = useState("Account conduct");
   const [reportDetails, setReportDetails] = useState("");
-  const [reviewingReport, setReviewingReport] = useState<string | null>(null);
 
   const owner = role === "owner";
   const applicationsByJob = useMemo(() => {
@@ -102,7 +112,6 @@ function PMPSFreelance() {
   const jobById = useMemo(() => new Map(jobs.map((item) => [item.id, item])), [jobs]);
   const categories = useMemo(() => [...new Set(jobs.map((job) => job.category))].sort(), [jobs]);
   const myApplications = useMemo(() => applications.filter((item) => item.freelancer_id === userId), [applications, userId]);
-  const myJobs = useMemo(() => jobs.filter((job) => job.client_id === userId), [jobs, userId]);
   const filteredJobs = useMemo(() => jobs.filter((job) => {
     const searchMatch = `${job.title} ${job.description} ${job.category}`.toLowerCase().includes(search.trim().toLowerCase());
     return searchMatch && (category === "all" || job.category === category);
@@ -191,8 +200,6 @@ function PMPSFreelance() {
       setApplications(applicationResponse.data ?? []);
       setMessages(messageResponse.data ?? []);
       setReports(reportResponse.data ?? []);
-      const ownEmail = (await supabase.auth.getUser()).data.user?.email ?? "";
-      setEmail(ownEmail);
       setProfileForm({
         display_name: loadedProfile?.display_name ?? "",
         headline: loadedProfile?.headline ?? "",
@@ -240,7 +247,7 @@ function PMPSFreelance() {
   async function loadOwnerDirectory() {
     try {
       const directory = await getOwnerDirectory();
-      setOwnerDirectory(directory);
+      setOwnerDirectory(directory as OwnerMember[]);
     } catch {
       toast.error("Owner account list could not be loaded.");
     }
@@ -496,7 +503,7 @@ function PMPSFreelance() {
         </div>
         <div className="flex items-center gap-2 md:hidden">
           {userId ? <Button variant="ghost" size="sm" onClick={() => void signOut()}>Sign out</Button> : <Button variant="outline" size="sm" onClick={openSignIn}>Sign in</Button>}
-          <Button size="sm" onClick={() => userId ? setShowPostJob(true) : (setAuthMode("signup"), setShowAuth(true))}>Post a job</Button>
+          {role === "client" || owner ? <Button size="sm" onClick={() => userId ? setShowPostJob(true) : (setAuthMode("signup"), setShowAuth(true))}>Post a job</Button> : <Button size="sm" onClick={() => userId ? document.getElementById("marketplace")?.scrollIntoView({ behavior: "smooth" }) : (setAuthMode("signup"), setShowAuth(true))}>{userId ? "Find work" : "Join PMPS"}</Button>}
         </div>
       </header>
 
@@ -528,7 +535,7 @@ function PMPSFreelance() {
             {nav.map(({ id, label, icon: Icon }) => <Button key={id} variant="ghost" onClick={() => setView(id)} className={`pmps-nav-item ${view === id ? "is-active" : ""}`}><Icon aria-hidden="true" /><span>{label}</span>{id === "messages" && conversations.length > 0 ? <Badge variant="secondary">{conversations.length}</Badge> : null}</Button>)}
             <Button variant="ghost" onClick={() => { setView("profile"); setEditingProfile(true); }} className={`pmps-nav-item ${view === "profile" ? "is-active" : ""}`}><span className="pmps-avatar pmps-avatar-small">{initials(displayName(profile))}</span><span>My profile</span></Button>
           </nav>
-          {userId ? <div className="pmps-sidebar-user"><div className="pmps-sidebar-avatar pmps-avatar">{initials(displayName(profile))}</div><div className="min-w-0"><strong>{displayName(profile)}</strong><span>{role ? roleLabel[role] : "Pick an account type"}</span></div><button className="pmps-icon-button" aria-label="Report a user" title="Report a user" onClick={() => { setReportTarget(""); setShowReport(true); }}>⋯</button></div> : <div className="pmps-sidebar-signin"><p>Join the work community.</p><Button size="sm" onClick={() => { setAuthMode("signup"); setShowAuth(true); }}>Create account</Button></div>}
+          {userId ? <div className="pmps-sidebar-user"><div className="pmps-sidebar-avatar pmps-avatar">{initials(displayName(profile))}</div><div className="min-w-0"><strong>{displayName(profile)}</strong><span>{role ? roleLabel[role] : "Pick an account type"}</span></div><Button variant="ghost" size="icon" className="pmps-icon-button" aria-label="Report a user" title="Report a user" onClick={() => { setReportTarget(""); setShowReport(true); }}>⋯</Button></div> : <div className="pmps-sidebar-signin"><p>Join the work community.</p><Button size="sm" onClick={() => { setAuthMode("signup"); setShowAuth(true); }}>Create account</Button></div>}
           <div className="pmps-sidebar-foot"><span className="pmps-live-dot" />A marketplace for real work</div>
         </aside>
 
@@ -536,7 +543,7 @@ function PMPSFreelance() {
           {view === "jobs" && <>
             <div className="pmps-section-topline"><div><div className="pmps-kicker pmps-small-kicker">THE OPEN MARKET</div><h2>Find your next <em>project.</em></h2><p>Thoughtful work from clients looking for the right person.</p></div>{role === "client" || owner ? <Button className="pmps-primary-action" onClick={() => setShowPostJob(true)}>Post a job <span aria-hidden="true">+</span></Button> : null}</div>
             <div className="pmps-filter-row"><label className="pmps-search"><span aria-hidden="true">⌕</span><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search jobs, skills, categories" aria-label="Search jobs" /></label><Select value={category} onValueChange={(next) => setCategory(next ?? "all")}><SelectTrigger className="pmps-category-select"><SelectValue placeholder="All categories" /></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select><span className="pmps-result-count">{filteredJobs.length} open {filteredJobs.length === 1 ? "role" : "roles"}</span></div>
-            {!userId ? <div className="pmps-soft-note">Sign in to apply, message clients, or save your profile.</div> : null}
+            {!userId ? <div className="pmps-soft-note">Sign in to apply, message clients, or save your profile.</div> : role === "client" ? <div className="pmps-soft-note">Your open roles appear here alongside current marketplace listings.</div> : null}
             {loading ? <div className="pmps-empty-state">Loading open jobs…</div> : filteredJobs.length === 0 ? <div className="pmps-empty-state"><div className="pmps-empty-icon"><BriefcaseBusiness /></div><h3>No jobs here just yet.</h3><p>Try another search, or check back when a new role is posted.</p>{role === "client" || owner ? <Button onClick={() => setShowPostJob(true)}>Post the first job <span>+</span></Button> : null}</div> : <div className="pmps-job-list">{filteredJobs.map((job) => {
               const myApplication = myApplications.find((application) => application.job_id === job.id);
               const submitted = Boolean(myApplication);
@@ -576,7 +583,7 @@ function PMPSFreelance() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="pmps-field"><Label>{label}</Label>{children}</label>;
 }
 
@@ -629,5 +636,3 @@ function relativeDate(date: string) {
 function GoogleMark() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.75 3.27-8.1Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.84 14.11A6.61 6.61 0 0 1 5.49 12c0-.73.13-1.44.35-2.11V7.05H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.95l3.66-2.84Z"/><path fill="#EA4335" d="M12 5.36c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.06 14.97 1 12 1a11 11 0 0 0-9.82 6.05l3.66 2.84C6.71 7.29 9.14 5.36 12 5.36Z"/></svg>;
 }
-
-import marketplaceCover from "@/assets/pmps-freelance-cover.jpg";
