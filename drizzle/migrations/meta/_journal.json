@@ -15,6 +15,13 @@
       "when": 1793867489731,
       "tag": "0001_verify_pmps_owner_and_active_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793867723264,
+      "tag": "0002_secure_pmps_job_visibility_and_protected_fields",
+      "breakpoints": true
     }
   ]
 }
