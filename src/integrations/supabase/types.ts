@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           freelancer_id: string
+          freelancer_response: string
           id: string
           job_id: string
           status: Database["public"]["Enums"]["application_status"]
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           created_at?: string
           freelancer_id: string
+          freelancer_response?: string
           id?: string
           job_id: string
           status?: Database["public"]["Enums"]["application_status"]
@@ -32,6 +34,7 @@ export type Database = {
         Update: {
           created_at?: string
           freelancer_id?: string
+          freelancer_response?: string
           id?: string
           job_id?: string
           status?: Database["public"]["Enums"]["application_status"]
