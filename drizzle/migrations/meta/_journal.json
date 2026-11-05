@@ -15,6 +15,27 @@
       "when": 1793867489731,
       "tag": "0001_verify_pmps_owner_and_active_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793867723264,
+      "tag": "0002_secure_pmps_job_visibility_and_protected_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793867813728,
+      "tag": "0003_pmps_freelancer_job_acceptance",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793867881220,
+      "tag": "0004_allow_selected_freelancers_to_respond",
+      "breakpoints": true
     }
   ]
 }
