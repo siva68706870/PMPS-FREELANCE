@@ -281,6 +281,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_account_active: { Args: { _user_id: string }; Returns: boolean }
       set_initial_role: {
         Args: { _role: Database["public"]["Enums"]["pmps_role"] }
         Returns: boolean

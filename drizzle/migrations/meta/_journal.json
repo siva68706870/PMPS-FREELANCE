@@ -8,6 +8,13 @@
       "when": 1793867188724,
       "tag": "0000_create_pmps_freelance_marketplace",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793867489731,
+      "tag": "0001_verify_pmps_owner_and_active_accounts",
+      "breakpoints": true
     }
   ]
 }
