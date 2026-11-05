@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793867188724,
+      "tag": "0000_create_pmps_freelance_marketplace",
+      "breakpoints": true
+    }
+  ]
 }

@@ -14,16 +14,281 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      applications: {
+        Row: {
+          created_at: string
+          freelancer_id: string
+          id: string
+          job_id: string
+          status: Database["public"]["Enums"]["application_status"]
+        }
+        Insert: {
+          created_at?: string
+          freelancer_id: string
+          id?: string
+          job_id: string
+          status?: Database["public"]["Enums"]["application_status"]
+        }
+        Update: {
+          created_at?: string
+          freelancer_id?: string
+          id?: string
+          job_id?: string
+          status?: Database["public"]["Enums"]["application_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_freelancer_id_fkey"
+            columns: ["freelancer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          budget_max: number | null
+          budget_min: number | null
+          category: string
+          client_id: string
+          created_at: string
+          description: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          budget_max?: number | null
+          budget_min?: number | null
+          category: string
+          client_id: string
+          created_at?: string
+          description: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          budget_max?: number | null
+          budget_min?: number | null
+          category?: string
+          client_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          job_id: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          recipient_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          account_state: string
+          avatar_url: string | null
+          bio: string | null
+          company_name: string | null
+          created_at: string
+          display_name: string
+          headline: string | null
+          hourly_rate: number | null
+          id: string
+          location: string | null
+          portfolio_url: string | null
+          role_selected: boolean
+          skills: string[]
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          account_state?: string
+          avatar_url?: string | null
+          bio?: string | null
+          company_name?: string | null
+          created_at?: string
+          display_name?: string
+          headline?: string | null
+          hourly_rate?: number | null
+          id: string
+          location?: string | null
+          portfolio_url?: string | null
+          role_selected?: boolean
+          skills?: string[]
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          account_state?: string
+          avatar_url?: string | null
+          bio?: string | null
+          company_name?: string | null
+          created_at?: string
+          display_name?: string
+          headline?: string | null
+          hourly_rate?: number | null
+          id?: string
+          location?: string | null
+          portfolio_url?: string | null
+          role_selected?: boolean
+          skills?: string[]
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          category: string
+          created_at: string
+          details: string
+          id: string
+          reporter_id: string | null
+          resolved_at: string | null
+          status: string
+          target_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          details: string
+          id?: string
+          reporter_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          target_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          details?: string
+          id?: string
+          reporter_id?: string | null
+          resolved_at?: string | null
+          status?: string
+          target_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["pmps_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["pmps_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["pmps_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["pmps_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      set_initial_role: {
+        Args: { _role: Database["public"]["Enums"]["pmps_role"] }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      application_status: "pending" | "shortlisted" | "selected" | "rejected"
+      pmps_role: "client" | "freelancer" | "owner"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +415,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      application_status: ["pending", "shortlisted", "selected", "rejected"],
+      pmps_role: ["client", "freelancer", "owner"],
+    },
   },
 } as const
