@@ -1,0 +1,3 @@
+- [ ] Build PMPS Freelance sign-in, role onboarding, job board, client applications, messages, profiles, reporting, and owner workspace.
+- [ ] Secure owner-only user removal and verified owner assignment; keep 80/20 as a future payout policy, not an active payment flow.
+- [ ] Verify project pages, key role/commission rules, migration security, and preview health.
