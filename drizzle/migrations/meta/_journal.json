@@ -36,6 +36,13 @@
       "when": 1793867881220,
       "tag": "0004_allow_selected_freelancers_to_respond",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793932039405,
+      "tag": "0005_add_public_job_client_profiles",
+      "breakpoints": true
     }
   ]
 }

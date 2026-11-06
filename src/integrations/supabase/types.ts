@@ -44,6 +44,13 @@ export type Database = {
             foreignKeyName: "applications_freelancer_id_fkey"
             columns: ["freelancer_id"]
             isOneToOne: false
+            referencedRelation: "open_job_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_freelancer_id_fkey"
+            columns: ["freelancer_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -98,6 +105,13 @@ export type Database = {
             foreignKeyName: "jobs_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "open_job_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -140,7 +154,21 @@ export type Database = {
             foreignKeyName: "messages_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
+            referencedRelation: "open_job_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "open_job_clients"
             referencedColumns: ["id"]
           },
           {
@@ -242,7 +270,21 @@ export type Database = {
             foreignKeyName: "reports_reporter_id_fkey"
             columns: ["reporter_id"]
             isOneToOne: false
+            referencedRelation: "open_job_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "open_job_clients"
             referencedColumns: ["id"]
           },
           {
@@ -274,7 +316,17 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      open_job_clients: {
+        Row: {
+          avatar_url: string | null
+          company_name: string | null
+          display_name: string | null
+          headline: string | null
+          id: string | null
+          location: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_applied_to_job: {

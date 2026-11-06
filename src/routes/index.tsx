@@ -52,6 +52,8 @@ type OwnerMember = {
   created_at: string;
 };
 
+type DraftConversation = { peer: Profile; jobId: string | null; jobTitle: string };
+
 const roleLabel: Record<Role, string> = { client: "Client", freelancer: "Freelancer", owner: "Owner" };
 const currency = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 const initialJobForm = { title: "", category: "Design & Creative", description: "", budget_min: "", budget_max: "" };
@@ -78,6 +80,7 @@ function PMPSFreelance() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [draftConversation, setDraftConversation] = useState<DraftConversation | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [ownerDirectory, setOwnerDirectory] = useState<OwnerMember[]>([]);
   const [view, setView] = useState<AppView>("jobs");
@@ -124,13 +127,20 @@ function PMPSFreelance() {
       const current = latestByPeerAndJob.get(key);
       if (!current || current.created_at < message.created_at) latestByPeerAndJob.set(key, message);
     }
-    return [...latestByPeerAndJob.entries()].map(([key, latest]) => {
+    const loaded = [...latestByPeerAndJob.entries()].map(([key, latest]) => {
       const peerId = key.split(":")[0] ?? "";
       const job = latest.job_id ? jobById.get(latest.job_id) : undefined;
       return { key, latest, jobTitle: job?.title ?? "General message", jobId: latest.job_id, peer: profileById.get(peerId) };
     }).filter((item): item is typeof item & { peer: Profile } => Boolean(item.peer))
       .sort((a, b) => b.latest.created_at.localeCompare(a.latest.created_at));
-  }, [messages, userId, jobById, profileById]);
+    if (draftConversation) {
+      const key = `${draftConversation.peer.id}:${draftConversation.jobId ?? "direct"}`;
+      if (!loaded.some((conversation) => conversation.key === key)) {
+        return [{ key, latest: null, ...draftConversation }, ...loaded];
+      }
+    }
+    return loaded;
+  }, [messages, userId, jobById, profileById, draftConversation]);
 
   useEffect(() => {
     let alive = true;
@@ -158,6 +168,8 @@ function PMPSFreelance() {
       setMessages([]);
       setReports([]);
       setOwnerDirectory([]);
+      setDraftConversation(null);
+      setLoading(false);
       return;
     }
     void loadMarketplace(userId);
@@ -227,10 +239,32 @@ function PMPSFreelance() {
         for (const item of directory ?? []) involvedUserIds.add(item.id);
       }
       const idList = [...involvedUserIds];
+      const relatedProfilesMap = new Map<string, Profile>();
       if (idList.length > 0) {
         const { data: relatedProfiles } = await supabase.from("profiles").select("*").in("id", idList);
-        setProfiles(relatedProfiles ?? []);
+        for (const item of relatedProfiles ?? []) relatedProfilesMap.set(item.id, item);
       }
+      if (loadedRole !== "owner") {
+        const { data: publicClients } = await supabase.from("open_job_clients").select("*");
+        for (const client of publicClients ?? []) relatedProfilesMap.set(client.id, {
+          id: client.id,
+          display_name: client.display_name,
+          avatar_url: client.avatar_url,
+          headline: client.headline,
+          location: client.location,
+          company_name: client.company_name,
+          bio: null,
+          skills: [],
+          portfolio_url: null,
+          website_url: null,
+          hourly_rate: null,
+          role_selected: true,
+          account_state: "active",
+          created_at: "",
+          updated_at: "",
+        });
+      }
+      setProfiles([...relatedProfilesMap.values()]);
       if (loadedRole === "owner") {
         const { data: roleRows } = await supabase.from("user_roles").select("role");
         const counts = new Map<string, number>();
@@ -427,19 +461,16 @@ function PMPSFreelance() {
     }
   }
 
-  async function startConversation(target: Profile, jobId: string | null = null) {
+  async function startConversation(target: Profile, jobId: string | null = null, jobTitle = "General message") {
     if (!userId) { setShowAuth(true); return; }
     const found = conversations.find((item) => item.peer.id === target.id && item.jobId === jobId);
-    if (found) setActiveConversation(found.key);
+    if (found) {
+      setDraftConversation(null);
+      setActiveConversation(found.key);
+    }
     else {
-      const { data: existing } = await supabase.from("messages").select("*").or(`and(sender_id.eq.${userId},recipient_id.eq.${target.id}),and(sender_id.eq.${target.id},recipient_id.eq.${userId})`).order("created_at", { ascending: true });
-      if (existing && existing.length > 0) {
-        setMessages((items) => [...items, ...existing.filter((message) => !items.some((item) => item.id === message.id))]);
-        setActiveConversation(`${target.id}:${jobId ?? "direct"}`);
-      } else {
-        toast.message("A conversation opens after a freelancer applies to a job.");
-        return;
-      }
+      setDraftConversation({ peer: target, jobId, jobTitle });
+      setActiveConversation(`${target.id}:${jobId ?? "direct"}`);
     }
     setView("messages");
   }
@@ -543,7 +574,7 @@ function PMPSFreelance() {
           {view === "jobs" && <>
             <div className="pmps-section-topline"><div><div className="pmps-kicker pmps-small-kicker">THE OPEN MARKET</div><h2>Find your next <em>project.</em></h2><p>Thoughtful work from clients looking for the right person.</p></div>{role === "client" || owner ? <Button className="pmps-primary-action" onClick={() => setShowPostJob(true)}>Post a job <span aria-hidden="true">+</span></Button> : null}</div>
             <div className="pmps-filter-row"><label className="pmps-search"><span aria-hidden="true">⌕</span><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search jobs, skills, categories" aria-label="Search jobs" /></label><Select value={category} onValueChange={(next) => setCategory(next ?? "all")}><SelectTrigger className="pmps-category-select"><SelectValue placeholder="All categories" /></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem>{categories.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select><span className="pmps-result-count">{filteredJobs.length} open {filteredJobs.length === 1 ? "role" : "roles"}</span></div>
-            {!userId ? <div className="pmps-soft-note">Sign in to apply, message clients, or save your profile.</div> : role === "client" ? <div className="pmps-soft-note">Your open roles appear here alongside current marketplace listings.</div> : null}
+            {!userId ? <div className="pmps-soft-note">Sign in to apply, message clients, or save your profile.</div> : role === "client" ? <div className="pmps-soft-note">Your open roles appear here alongside current marketplace listings.</div> : profile && !profile.role_selected ? <div className="pmps-soft-note">Choose whether you’re hiring or freelancing before you can apply. <Button variant="link" className="pmps-inline-link" onClick={() => setView("profile")}>Finish account setup ↗</Button></div> : null}
             {loading ? <div className="pmps-empty-state">Loading open jobs…</div> : filteredJobs.length === 0 ? <div className="pmps-empty-state"><div className="pmps-empty-icon"><BriefcaseBusiness /></div><h3>No jobs here just yet.</h3><p>Try another search, or check back when a new role is posted.</p>{role === "client" || owner ? <Button onClick={() => setShowPostJob(true)}>Post the first job <span>+</span></Button> : null}</div> : <div className="pmps-job-list">{filteredJobs.map((job) => {
               const myApplication = myApplications.find((application) => application.job_id === job.id);
               const submitted = Boolean(myApplication);
@@ -551,13 +582,13 @@ function PMPSFreelance() {
               const applicationCount = applicationsByJob.get(job.id)?.length ?? 0;
               return <article className="pmps-job-row" key={job.id}>
                 <div className="pmps-job-main"><div className="pmps-job-title-row"><Badge variant="outline" className="pmps-category-badge">{job.category}</Badge><span className="pmps-job-date">{relativeDate(job.created_at)}</span></div><h3>{job.title}</h3><p>{job.description}</p><div className="pmps-job-metadata"><span className="pmps-client-avatar">{initials(displayName(poster))}</span><strong>{displayName(poster)}</strong>{poster?.company_name ? <span>{poster.company_name}</span> : null}<span className="pmps-metadata-separator">·</span><span>{poster?.location ?? "Remote"}</span></div></div>
-                <div className="pmps-job-side"><div className="pmps-budget-label">PROJECT BUDGET</div><strong className="pmps-budget">{job.budget_min == null && job.budget_max == null ? "Discuss" : `${job.budget_min != null ? `₹${currency.format(job.budget_min)}` : ""}${job.budget_min != null && job.budget_max != null ? " – " : ""}${job.budget_max != null ? `₹${currency.format(job.budget_max)}` : ""}`}</strong><span className="pmps-applicant-count">{applicationCount} applicants</span>{role === "client" && job.client_id === userId ? <Button variant="outline" onClick={() => setView("applications")}>View applicants</Button> : role === "freelancer" ? <Button variant={submitted ? "secondary" : "default"} className={submitted ? "pmps-applied-button" : "pmps-primary-action"} disabled={submitted} onClick={() => void applyToJob(job.id)}>{submitted ? "Applied ✓" : "Apply in one click ↗"}</Button> : !userId ? <Button variant="outline" onClick={openSignIn}>Sign in to apply</Button> : null}</div>
+                <div className="pmps-job-side"><div className="pmps-budget-label">PROJECT BUDGET</div><strong className="pmps-budget">{job.budget_min == null && job.budget_max == null ? "Discuss" : `${job.budget_min != null ? `₹${currency.format(job.budget_min)}` : ""}${job.budget_min != null && job.budget_max != null ? " – " : ""}${job.budget_max != null ? `₹${currency.format(job.budget_max)}` : ""}`}</strong><span className="pmps-applicant-count">{applicationCount} applicants</span>{role === "client" && job.client_id === userId ? <Button variant="outline" onClick={() => setView("applications")}>View applicants</Button> : role === "freelancer" && profile?.role_selected ? <Button variant={submitted ? "secondary" : "default"} className={submitted ? "pmps-applied-button" : "pmps-primary-action"} disabled={submitted} onClick={() => void applyToJob(job.id)}>{submitted ? "Applied ✓" : "Apply in one click ↗"}</Button> : !userId ? <Button variant="outline" onClick={openSignIn}>Sign in to apply</Button> : null}</div>
               </article>;
             })}</div>}
           </>}
 
           {view === "applications" && <ApplicationWorkspace role={role} userId={userId} jobs={jobs} applications={applications} profiles={profileById} onStatus={setApplicationStatus} onRespond={respondToSelection} onMessage={startConversation} />}
-          {view === "messages" && <section className="pmps-content-section"><div className="pmps-kicker pmps-small-kicker">DIRECT CONVERSATIONS</div><h2>Your <em>messages.</em></h2><p className="pmps-section-description">Talk directly with the people behind the work.</p><div className="pmps-message-layout">{conversations.length === 0 ? <div className="pmps-empty-state pmps-message-empty"><div className="pmps-empty-icon"><MessageCircleMore /></div><h3>No conversations yet.</h3><p>Messages become available after a job application is submitted.</p></div> : <><div className="pmps-conversation-list">{conversations.map((conversation) => <button type="button" className={`pmps-conversation-item ${activeConversation === conversation.key ? "is-selected" : ""}`} key={conversation.key} onClick={() => setActiveConversation(conversation.key)}><span className="pmps-avatar">{initials(displayName(conversation.peer))}</span><span className="pmps-conversation-details"><strong>{displayName(conversation.peer)}</strong><span>{conversation.jobTitle}</span><small>{conversation.latest.body}</small></span></button>)}</div><div className="pmps-chat-window">{activeConversation ? (() => {
+          {view === "messages" && <section className="pmps-content-section"><div className="pmps-kicker pmps-small-kicker">DIRECT CONVERSATIONS</div><h2>Your <em>messages.</em></h2><p className="pmps-section-description">Talk directly with the people behind the work.</p><div className="pmps-message-layout">{conversations.length === 0 ? <div className="pmps-empty-state pmps-message-empty"><div className="pmps-empty-icon"><MessageCircleMore /></div><h3>No conversations yet.</h3><p>Messages become available after a job application is submitted.</p></div> : <><div className="pmps-conversation-list">{conversations.map((conversation) => <button type="button" className={`pmps-conversation-item ${activeConversation === conversation.key ? "is-selected" : ""}`} key={conversation.key} onClick={() => setActiveConversation(conversation.key)}><span className="pmps-avatar">{initials(displayName(conversation.peer))}</span><span className="pmps-conversation-details"><strong>{displayName(conversation.peer)}</strong><span>{conversation.jobTitle}</span><small>{conversation.latest?.body ?? "Start the conversation"}</small></span></button>)}</div><div className="pmps-chat-window">{activeConversation ? (() => {
                 const conversation = conversations.find((item) => item.key === activeConversation);
                 if (!conversation) return <div className="pmps-chat-placeholder">Select a conversation to continue.</div>;
                 const thread = messages.filter((item) => item.job_id === conversation.jobId && ((item.sender_id === userId && item.recipient_id === conversation.peer.id) || (item.sender_id === conversation.peer.id && item.recipient_id === userId)));
@@ -568,7 +599,7 @@ function PMPSFreelance() {
             {!role ? <div className="pmps-role-choice"><h3>How will you use PMPS Freelance?</h3><p>Choose your account type. This can only be selected once.</p><div className="pmps-role-choice-buttons"><Button className="pmps-primary-action" disabled={busy} onClick={() => void chooseRole("freelancer")}>I’m a freelancer ↗</Button><Button variant="outline" disabled={busy} onClick={() => void chooseRole("client")}>I’m hiring ↗</Button></div></div> : null}
             {editingProfile ? <form className="pmps-form-grid" onSubmit={(event) => void saveProfile(event)}><Field label="Display name"><Input value={profileForm.display_name} onChange={(event) => setProfileForm({ ...profileForm, display_name: event.target.value })} required maxLength={120} /></Field><Field label="Headline"><Input value={profileForm.headline} onChange={(event) => setProfileForm({ ...profileForm, headline: event.target.value })} placeholder="e.g. Independent brand designer" maxLength={160} /></Field><Field label="Location"><Input value={profileForm.location} onChange={(event) => setProfileForm({ ...profileForm, location: event.target.value })} maxLength={120} /></Field><Field label={role === "client" ? "Company or organization" : "Hourly rate (₹), optional"}>{role === "client" ? <Input value={profileForm.company_name} onChange={(event) => setProfileForm({ ...profileForm, company_name: event.target.value })} maxLength={160} /> : <Input type="number" min="0" value={profileForm.hourly_rate} onChange={(event) => setProfileForm({ ...profileForm, hourly_rate: event.target.value })} />}</Field><Field label="About you"><Textarea value={profileForm.bio} onChange={(event) => setProfileForm({ ...profileForm, bio: event.target.value })} maxLength={3000} rows={4} /></Field><Field label="Skills, separated by commas"><Input value={profileForm.skills} onChange={(event) => setProfileForm({ ...profileForm, skills: event.target.value })} placeholder="Design, writing, research" /></Field><Field label="Portfolio URL"><Input type="url" value={profileForm.portfolio_url} onChange={(event) => setProfileForm({ ...profileForm, portfolio_url: event.target.value })} placeholder="https://" /></Field><Field label="Website URL"><Input type="url" value={profileForm.website_url} onChange={(event) => setProfileForm({ ...profileForm, website_url: event.target.value })} placeholder="https://" /></Field><Button type="submit" className="pmps-primary-action" disabled={busy}>Save profile</Button>{!role ? <p className="pmps-form-hint">Choose your account type above to unlock job actions.</p> : null}</form> : <div className="pmps-profile-view"><div><div className="pmps-detail-label">ABOUT</div><p>{profile?.bio || "Add a short introduction so the right people can get to know you."}</p></div><div><div className="pmps-detail-label">SKILLS</div><div className="pmps-skills">{profile?.skills.length ? profile.skills.map((skill) => <Badge key={skill} variant="outline">{skill}</Badge>) : <span>Add the skills you bring to a project.</span>}</div></div>{profile?.headline ? <div><div className="pmps-detail-label">HEADLINE</div><p>{profile.headline}</p></div> : null}<Button variant="outline" onClick={() => setEditingProfile(true)}>Edit profile</Button></div>}</section>}
 
-          {view === "admin" && owner ? <section className="pmps-content-section"><div className="pmps-kicker pmps-small-kicker">OWNER ONLY</div><h2>Trust starts <em>here.</em></h2><p className="pmps-section-description">Review reports, manage members, and keep the marketplace genuine.</p><Tabs defaultValue="reports" className="pmps-admin-tabs"><TabsList><TabsTrigger value="reports">Reports <Badge variant="secondary">{reports.filter((report) => report.status !== "resolved").length}</Badge></TabsTrigger><TabsTrigger value="members">Members <Badge variant="secondary">{ownerDirectory.length}</Badge></TabsTrigger></TabsList><TabsContent value="reports"><div className="pmps-admin-list">{reports.length === 0 ? <div className="pmps-empty-state"><h3>No reports to review.</h3><p>Reports from clients and freelancers will appear here.</p></div> : reports.map((report) => <ReportRow key={report.id} report={report} profiles={profileById} onStatus={updateReport} />)}</div></TabsContent><TabsContent value="members"><div className="pmps-member-stats"><span>Freelancers <strong>{ownerRoleCounts.get("freelancer") ?? 0}</strong></span><span>Clients <strong>{ownerRoleCounts.get("client") ?? 0}</strong></span></div><div className="pmps-admin-list">{ownerDirectory.map((member) => <div className="pmps-member-row" key={String(member.id)}><span className="pmps-avatar">{initials(String(member.display_name ?? "Member"))}</span><span className="pmps-member-details"><strong>{String(member.display_name ?? "Member")}</strong><span>{String(member.email ?? "")} · {String(member.role ?? "freelancer")}</span></span><Badge variant={member.account_state === "active" ? "outline" : "destructive"}>{String(member.account_state ?? "active")}</Badge><Button variant="destructive" size="sm" disabled={String(member.id) === userId} onClick={() => void removeAccount(String(member.id))}>Remove</Button></div>)}</div></TabsContent></Tabs></section> : null}
+          {view === "admin" && owner ? <section className="pmps-content-section"><div className="pmps-kicker pmps-small-kicker">OWNER ONLY</div><h2>Trust starts <em>here.</em></h2><p className="pmps-section-description">Review reports, manage members, and keep the marketplace genuine.</p><Tabs defaultValue="reports" className="pmps-admin-tabs"><TabsList><TabsTrigger value="reports">Reports <Badge variant="secondary">{reports.filter((report) => report.status !== "resolved").length}</Badge></TabsTrigger><TabsTrigger value="members">Members <Badge variant="secondary">{ownerDirectory.length}</Badge></TabsTrigger></TabsList><TabsContent value="reports"><div className="pmps-admin-list">{reports.length === 0 ? <div className="pmps-empty-state"><h3>No reports to review.</h3><p>Reports from clients and freelancers will appear here.</p></div> : reports.map((report) => <ReportRow key={report.id} report={report} profiles={profileById} onStatus={updateReport} />)}</div></TabsContent><TabsContent value="members"><div className="pmps-member-stats"><span>Freelancers <strong>{ownerRoleCounts.get("freelancer") ?? 0}</strong></span><span>Clients <strong>{ownerRoleCounts.get("client") ?? 0}</strong></span></div><div className="pmps-admin-list">{ownerDirectory.map((member) => <div className="pmps-member-row" key={member.id}><span className="pmps-avatar">{initials(member.display_name)}</span><span className="pmps-member-details"><strong>{member.display_name}</strong><span>{member.email} · {roleLabel[member.role]}</span></span><Badge variant={member.account_state === "active" ? "outline" : "destructive"}>{member.account_state}</Badge><Button variant="outline" size="sm" onClick={() => void startConversation(profileById.get(member.id) ?? { ...member, bio: null, portfolio_url: null, website_url: null, hourly_rate: null, role_selected: true, updated_at: "" }, null, "Direct message")}>Message</Button><Button variant="destructive" size="sm" disabled={member.id === userId} onClick={() => void removeAccount(member.id)}>Remove</Button></div>)}</div></TabsContent></Tabs></section> : null}
         </div>
       </section>
 
@@ -608,7 +639,7 @@ function ApplicationWorkspace({ role, userId, jobs, applications, profiles, onSt
     const job = jobs.find((item) => item.id === application.job_id);
     const freelancer = profiles.get(application.freelancer_id);
     if (!job) return null;
-    return <article className="pmps-application-row" key={application.id}><div className="pmps-applicant-avatar pmps-avatar">{initials(displayName(freelancer))}</div><div className="pmps-application-details"><div className="pmps-job-title-row"><Badge variant="outline" className="pmps-category-badge">{job.category}</Badge><StatusBadge status={application.status} /></div><h3>{role === "freelancer" ? job.title : displayName(freelancer)}</h3><p>{role === "freelancer" ? `Client: ${displayName(profiles.get(job.client_id))}` : freelancer?.headline ?? freelancer?.bio ?? "This freelancer is building their profile."}</p><div className="pmps-application-tags">{freelancer?.skills.map((skill) => <Badge key={skill} variant="secondary">{skill}</Badge>)}{role !== "freelancer" && freelancer?.location ? <span>{freelancer.location}</span> : null}</div></div><div className="pmps-application-actions">{role === "client" || role === "owner" ? <><Button size="sm" variant="outline" onClick={() => void onMessage(freelancer ?? { id: application.freelancer_id } as Profile, job.id)}>Message</Button><Select value={application.status} onValueChange={(next) => { if (next && ["pending", "shortlisted", "selected", "rejected"].includes(next)) void onStatus(application, next as Application["status"]); }}><SelectTrigger className="pmps-decision-select"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="shortlisted">Shortlist</SelectItem><SelectItem value="selected">Select</SelectItem><SelectItem value="rejected">Reject</SelectItem></SelectContent></Select></> : application.status === "selected" && application.freelancer_response === "pending" ? <><Button size="sm" className="pmps-primary-action" onClick={() => void onRespond(application, "accepted")}>Accept job ↗</Button><Button size="sm" variant="outline" onClick={() => void onRespond(application, "declined")}>Pass</Button></> : <Badge variant={application.freelancer_response === "accepted" ? "default" : "outline"}>{application.freelancer_response === "accepted" ? "Accepted" : application.freelancer_response === "declined" ? "Passed" : application.status}</Badge>}</div></article>;
+    return <article className="pmps-application-row" key={application.id}><div className="pmps-applicant-avatar pmps-avatar">{initials(displayName(freelancer))}</div><div className="pmps-application-details"><div className="pmps-job-title-row"><Badge variant="outline" className="pmps-category-badge">{job.category}</Badge><StatusBadge status={application.status} /></div><h3>{role === "freelancer" ? job.title : displayName(freelancer)}</h3><p>{role === "freelancer" ? `Client: ${displayName(profiles.get(job.client_id))}` : freelancer?.headline ?? freelancer?.bio ?? "This freelancer is building their profile."}</p><div className="pmps-application-tags">{freelancer?.skills.map((skill) => <Badge key={skill} variant="secondary">{skill}</Badge>)}{role !== "freelancer" && freelancer?.location ? <span>{freelancer.location}</span> : null}</div></div><div className="pmps-application-actions">{role === "client" || role === "owner" ? <><Button size="sm" variant="outline" onClick={() => freelancer ? void onMessage(freelancer, job.id) : undefined}>Message</Button><Select value={application.status} onValueChange={(next) => { if (next && ["pending", "shortlisted", "selected", "rejected"].includes(next)) void onStatus(application, next as Application["status"]); }}><SelectTrigger className="pmps-decision-select"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="shortlisted">Shortlist</SelectItem><SelectItem value="selected">Select</SelectItem><SelectItem value="rejected">Reject</SelectItem></SelectContent></Select></> : application.status === "selected" && application.freelancer_response === "pending" ? <><Button size="sm" className="pmps-primary-action" onClick={() => void onRespond(application, "accepted")}>Accept job ↗</Button><Button size="sm" variant="outline" onClick={() => void onRespond(application, "declined")}>Pass</Button></> : <Badge variant={application.freelancer_response === "accepted" ? "default" : "outline"}>{application.freelancer_response === "accepted" ? "Accepted" : application.freelancer_response === "declined" ? "Passed" : application.status}</Badge>}</div></article>;
   })}</div>}</section>;
 }
 
