@@ -34,8 +34,6 @@ Future
 
 - payment gateway , subscription and rules and regulations will be updated later
 
-Take less than 5 credits 
-
 Note : no fake users and freelancer and owner can report each other if any problem and immediately send report to owner
 
 This project was built with [Lovable](https://lovable.dev).
