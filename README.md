@@ -38,7 +38,7 @@ Note : no fake users and freelancer and client can report each other if any prob
 
 This project was built with [Lovable](https://lovable.dev).
 
-**Live app**: https://pmps-freelance.lovable.app
+**Live app**: https://pmpsfreelance.lovable.app
 
 ## Build with Lovable
 
